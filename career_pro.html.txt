@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>转行情报分析师 Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        /* 优化 Markdown 渲染后的排版 */
+        .prose h1, .prose h2, .prose h3 { color: #1e40af; margin-top: 1.5em; margin-bottom: 0.5em; font-weight: bold; }
+        .prose h1 { font-size: 1.5rem; border-bottom: 2px solid #bfdbfe; padding-bottom: 0.3em; }
+        .prose h2 { font-size: 1.25rem; }
+        .prose p { margin-bottom: 1em; line-height: 1.7; color: #374151; }
+        .prose ul, .prose ol { margin-left: 1.5em; margin-bottom: 1em; }
+        .prose li { margin-bottom: 0.5em; list-style-type: disc; }
+        .prose table { width: 100%; border-collapse: collapse; margin-bottom: 1.5em; }
+        .prose th, .prose td { border: 1px solid #e5e7eb; padding: 0.75em; text-align: left; }
+        .prose th { background-color: #f3f4f6; font-weight: bold; }
+        .prose strong { color: #111827; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-slate-800 mb-2">🧭 转行情报分析系统 Pro</h1>
+            <p class="text-slate-500">Describe 现状定锚 → Predict 分级预测 → Execute 分轨执行</p>
+        </header>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">🔑 AI API Key (用于调用模型)</label>
+                    <input type="password" id="apiKey" placeholder="输入你的 Gemini API Key" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <p class="text-xs text-slate-400 mt-1">仅在本地运行，不会上传服务器</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">📍 目标城市/市场</label>
+                    <input type="text" id="city" value="深圳" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-semibold text-slate-700 mb-2">👤 当前资产与背景 (越详细越好)</label>
+                <textarea id="background" rows="3" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">英语专八，英硕学历，1年2个月体制内大型重点项目统筹与合规管理经验，执行力强，想要脱离体制内寻找更高薪资上限。</textarea>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-semibold text-slate-700 mb-2">🎯 目标行业与岗位</label>
+                <input type="text" id="target" value="硬科技企业（如储能/商用机器人）海外大客户BD" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+
+            <button onclick="generateReport()" id="genBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md">
+                🚀 一键生成战略沙盘报告
+            </button>
+            <p id="loadingText" class="text-center text-blue-600 font-medium mt-4 hidden animate-pulse">
+                系统正在进行深度检索与战略演算，这可能需要 15-30 秒，请耐心等待...
+            </p>
+        </div>
+
+        <div id="resultContainer" class="hidden">
+            <div class="flex justify-end mb-4">
+                <button onclick="downloadPDF()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200 shadow-md flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    导出为 PDF 报告
+                </button>
+            </div>
+            
+            <div id="reportContent" class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 md:p-12 prose max-w-none">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        // 你之前设定好的那个巨大且专业的 Prompt 核心指令
+        const systemPrompt = `你是一个顶级的"转行情报分析师"。请根据用户的背景、目标和城市，生成一份专业的【职业战略沙盘与转行情报报告】。
+        必须严格包含三大板块：
+        【PART 1: Describe | 现状定锚】分析其核心资产、转行优劣势，并提供目标岗位的真实市场情报与技能Gap分析（用表格）。
+        【PART 2: Predict | 三维目标分级】用表格输出“保守型、努力型、冲刺型”三个级别对应的企业画像、薪资预测及达成概率。
+        【PART 3: Execute | 分轨执行】提供HR视角可信度评分、面试高频话术重构建议，以及针对上述三个级别的具体落地行动路线图。
+        语气专业、冷血客观、不废话，直接输出报告正文。`;
+
+        async function generateReport() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const bg = document.getElementById('background').value.trim();
+            const target = document.getElementById('target').value.trim();
+            const city = document.getElementById('city').value.trim();
+            const btn = document.getElementById('genBtn');
+            const loading = document.getElementById('loadingText');
+            const resultContainer = document.getElementById('resultContainer');
+            const reportContent = document.getElementById('reportContent');
+
+            if(!apiKey) { alert("请先输入 API Key！"); return; }
+            if(!bg || !target) { alert("请完善背景和目标信息！"); return; }
+
+            // UI 状态切换
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            loading.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+
+            const userPrompt = `用户当前背景：${bg}\n目标城市：${city}\n目标岗位：${target}`;
+
+            try {
+                // 调用 Gemini API (这里使用 Gemini 1.5 Flash 作为示例，速度快)
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [
+                            { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }
+                        ],
+                        generationConfig: { temperature: 0.2 }
+                    })
+                });
+
+                const data = await response.json();
+                
+                if(data.error) {
+                    throw new Error(data.error.message);
+                }
+
+                const markdownText = data.candidates[0].content.parts[0].text;
+                
+                // 将 Markdown 转换为 HTML
+                reportContent.innerHTML = marked.parse(markdownText);
+                resultContainer.classList.remove('hidden');
+
+            } catch (error) {
+                alert("生成失败，请检查网络或 API Key 是否正确。\n错误信息：" + error.message);
+            } finally {
+                // 恢复 UI 状态
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                loading.classList.add('hidden');
+            }
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById('reportContent');
+            const opt = {
+                margin:       10,
+                filename:     '职业战略沙盘报告.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+    </script>
+</body>
+</html>
